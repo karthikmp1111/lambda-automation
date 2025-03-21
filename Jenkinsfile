@@ -39,6 +39,7 @@ pipeline {
                         def status = sh(script: "[ -d .git ] && git diff --quiet HEAD~1 lambda-functions/${lambdaName} || echo 'no-change'", returnStatus: true)
                         if (status != 0) {
                             sh "bash lambda-functions/${lambdaName}/deploy.sh"
+                            sh "ls -l lambda-functions/${lambdaName}/"  // Verify package.zip exists
                         } else {
                             echo "No changes detected in ${lambdaName}, skipping build."
                         }

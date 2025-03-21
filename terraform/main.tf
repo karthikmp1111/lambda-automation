@@ -9,10 +9,7 @@ terraform {
 }
 
 locals {
-  lambda_files = {
-    for name in var.lambda_names :
-    name => filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip")
-  }
+  lambda_files = { for name in var.lambda_names : name => filebase64sha256(abspath("${path.module}/../lambda-functions/${name}/package.zip")) }
 }
 
 resource "aws_lambda_function" "lambda" {
@@ -22,9 +19,9 @@ resource "aws_lambda_function" "lambda" {
   handler       = "index.lambda_handler"
   runtime       = "python3.8"
 
-  filename         = "${path.module}/../lambda-functions/${each.key}/package.zip"
+  filename         = abspath("${path.module}/../lambda-functions/${each.key}/package.zip")
   source_code_hash = each.value
-  publish          = true
+  publish = true
 
   environment {
     variables = {
