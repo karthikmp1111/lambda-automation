@@ -36,10 +36,11 @@ pipeline {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
                     lambdas.each { lambdaName ->
-                        def status = sh(script: "[ -d .git ] && git diff --quiet HEAD~1 lambda-functions/${lambdaName} || echo 'no-change'", returnStatus: true)
-                        if (status != 0) {
-                            sh "bash lambda-functions/${lambdaName}/deploy.sh"
-                            sh "ls -l lambda-functions/${lambdaName}/"  // Verify package.zip exists
+                        def packageExists = sh(script: "[ -f lambda-functions/${lambdaName}/package.zip ] && echo 'exists'", returnStdout: true).trim()
+                        
+                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0 || packageExists != "exists") {
+                            echo "Building ${lambdaName}..."
+                            sh "bash lambda-functions/${lambdaName}/build.sh"
                         } else {
                             echo "No changes detected in ${lambdaName}, skipping build."
                         }
@@ -47,6 +48,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Terraform Init') {
             steps {
