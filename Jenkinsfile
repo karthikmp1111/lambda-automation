@@ -23,36 +23,28 @@ pipeline {
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_KEY')
                 ]) {
                     sh '''
-                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
-                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
-                    export AWS_REGION=$AWS_REGION
+                    aws configure set aws_access_key_id $AWS_ACCESS_KEY
+                    aws configure set aws_secret_access_key $AWS_SECRET_KEY
+                    aws configure set region $AWS_REGION
                     '''
                 }
             }
         }
-        
+
         stage('Build Lambda Packages') {
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
                     lambdas.each { lambdaName ->
-                        def packagePath = "lambda-functions/${lambdaName}/package.zip"
-                        
-                        // Check if package.zip exists OR if the Lambda function has changed
-                        def packageExists = sh(script: "[ -f ${packagePath} ] && echo 'exists'", returnStdout: true).trim()
-                        def lambdaChanged = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
-
-                        if (packageExists != "exists" || lambdaChanged != 0) {
-                            echo "🔄 Rebuilding ${lambdaName} because package.zip is missing or Lambda changed"
+                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0) {
                             sh "bash lambda-functions/${lambdaName}/build.sh"
                         } else {
-                            echo "✅ No changes detected in ${lambdaName}, skipping build."
+                            echo "No changes detected in ${lambdaName}, skipping build."
                         }
                     }
                 }
             }
         }
-
 
         stage('Terraform Init') {
             steps {
@@ -92,9 +84,9 @@ pipeline {
             }
         }
     }
-
+    
     post {
-        always {
+        failure {
             cleanWs()
         }
     }
