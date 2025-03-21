@@ -1,5 +1,18 @@
+terraform {
+  backend "s3" {
+    bucket         = "bg-kar-terraform-state"
+    key            = "terraform.tfstate"
+    region         = "us-west-1"
+    dynamodb_table = "bg-kar-terraform-lock"
+    encrypt        = true
+  }
+}
+
 locals {
-  lambda_files = { for name in var.lambda_names : name => filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip") }
+  lambda_files = {
+    for name in var.lambda_names :
+    name => filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip")
+  }
 }
 
 resource "aws_lambda_function" "lambda" {
@@ -33,13 +46,6 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
-# Attach basic execution role to Lambda
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# S3 bucket for Terraform state storage
 resource "aws_s3_bucket" "terraform_state" {
   bucket = "bg-kar-terraform-state"
 }
@@ -61,7 +67,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_e
   }
 }
 
-# DynamoDB table for Terraform state locking
 resource "aws_dynamodb_table" "terraform_lock" {
   name         = "bg-kar-terraform-lock"
   billing_mode = "PAY_PER_REQUEST"

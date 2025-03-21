@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-west-1'
-        S3_BUCKET = 'bg-kar-terraform-state'
-        DYNAMODB_TABLE = 'bg-kar-terraform-lock'
     }
 
     parameters {
@@ -25,9 +23,9 @@ pipeline {
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_KEY')
                 ]) {
                     sh '''
-                    aws configure set aws_access_key_id $AWS_ACCESS_KEY
-                    aws configure set aws_secret_access_key $AWS_SECRET_KEY
-                    aws configure set region $AWS_REGION
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
+                    export AWS_REGION=$AWS_REGION
                     '''
                 }
             }
@@ -38,7 +36,8 @@ pipeline {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
                     lambdas.each { lambdaName ->
-                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0) {
+                        def status = sh(script: "[ -d .git ] && git diff --quiet HEAD~1 lambda-functions/${lambdaName} || echo 'no-change'", returnStatus: true)
+                        if (status != 0) {
                             sh "bash lambda-functions/${lambdaName}/deploy.sh"
                         } else {
                             echo "No changes detected in ${lambdaName}, skipping build."
@@ -89,7 +88,6 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up workspace..."
             cleanWs()
         }
     }
