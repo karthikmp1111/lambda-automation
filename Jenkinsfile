@@ -12,7 +12,8 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/karthikmp1111/multi-lambda.git'
+                git branch: 'main', url: 'https://github.com/karthikmp1111/lambda-automation.git'
+                sh 'ls -la'
             }
         }
 
@@ -22,11 +23,14 @@ pipeline {
                     string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY'),
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_KEY')
                 ]) {
-                    script {
-                        env.AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY
-                        env.AWS_SECRET_ACCESS_KEY = AWS_SECRET_KEY
-                    }
+                    sh '''
+                    set -e
+                    aws configure set aws_access_key_id $AWS_ACCESS_KEY
+                    aws configure set aws_secret_access_key $AWS_SECRET_KEY
+                    aws configure set region $AWS_REGION
+                    '''
                 }
+                sh 'ls -la'
             }
         }
 
@@ -34,39 +38,42 @@ pipeline {
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
+                    def changesDetected = false
+
                     lambdas.each { lambdaName ->
-                        def packageZip = "lambda-functions/${lambdaName}/package.zip"
-                        def hasChanges = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName} || echo 'CHANGED'", returnStdout: true).trim() == 'CHANGED'
-                        
-                        if (hasChanges || !fileExists(packageZip)) {
-                            echo "Building ${lambdaName}..."
+                        def status = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
+                        if (status != 0) {
+                            echo "🔄 Changes detected in ${lambdaName}, building..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
+                            changesDetected = true
                         } else {
                             echo "✅ No changes detected in ${lambdaName}, skipping build."
                         }
                     }
-                }
-            }
-        }
 
-        stage('Verify Lambda Packages') {
-            steps {
-                script {
-                    def lambdas = ["lambda1", "lambda2", "lambda3"]
-                    lambdas.each { lambdaName ->
-                        def packageZip = "lambda-functions/${lambdaName}/package.zip"
-                        if (!fileExists(packageZip)) {
-                            error "❌ ERROR: ${packageZip} is missing. Ensure the build step executed correctly."
-                        }
+                    if (!changesDetected) {
+                        echo "🚀 No Lambda changes detected, skipping deployment."
                     }
                 }
+                sh 'ls -la lambda-functions/'
             }
         }
 
         stage('Terraform Init') {
             steps {
                 dir('terraform') {
+                    sh 'ls -la'
                     sh 'terraform init'
+                    sh 'ls -la'
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                dir('terraform') {
+                    sh 'ls -la'
+                    sh 'terraform validate'
                 }
             }
         }
@@ -74,6 +81,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('terraform') {
+                    sh 'ls -la'
                     sh 'terraform plan'
                 }
             }
@@ -85,6 +93,7 @@ pipeline {
             }
             steps {
                 dir('terraform') {
+                    sh 'ls -la'
                     sh 'terraform apply -auto-approve'
                 }
             }
@@ -96,16 +105,10 @@ pipeline {
             }
             steps {
                 dir('terraform') {
+                    sh 'ls -la'
                     sh 'terraform destroy -auto-approve'
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Cleaning up Jenkins workspace..."
-            deleteDir() // Ensures the workspace is cleaned up after execution
         }
     }
 }
