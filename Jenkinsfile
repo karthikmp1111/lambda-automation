@@ -22,11 +22,10 @@ pipeline {
                     string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY'),
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_KEY')
                 ]) {
-                    sh '''
-                    aws configure set aws_access_key_id $AWS_ACCESS_KEY
-                    aws configure set aws_secret_access_key $AWS_SECRET_KEY
-                    aws configure set region $AWS_REGION
-                    '''
+                    script {
+                        env.AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY
+                        env.AWS_SECRET_ACCESS_KEY = AWS_SECRET_KEY
+                    }
                 }
             }
         }
@@ -37,11 +36,13 @@ pipeline {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
                     lambdas.each { lambdaName ->
                         def packageZip = "lambda-functions/${lambdaName}/package.zip"
-                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0 || !fileExists(packageZip)) {
+                        def hasChanges = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName} || echo 'CHANGED'", returnStdout: true).trim() == 'CHANGED'
+                        
+                        if (hasChanges || !fileExists(packageZip)) {
                             echo "Building ${lambdaName}..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
                         } else {
-                            echo "No changes detected in ${lambdaName}, skipping build."
+                            echo "✅ No changes detected in ${lambdaName}, skipping build."
                         }
                     }
                 }

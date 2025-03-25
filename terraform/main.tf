@@ -1,8 +1,9 @@
 locals {
-  lambda_files = { 
-    for name in var.lambda_names : name => fileexists("${path.module}/../lambda-functions/${name}/package.zip") 
+  lambda_files = {
+    for name in var.lambda_names :
+    name => fileexists("${path.module}/../lambda-functions/${name}/package.zip") 
       ? filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip") 
-      : null 
+      : null
   }
 }
 
