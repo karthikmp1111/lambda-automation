@@ -31,7 +31,26 @@ pipeline {
             }
         }
 
+        // stage('Build Lambda Packages') {
+        //     steps {
+        //         script {
+        //             def lambdas = ["lambda1", "lambda2", "lambda3"]
+        //             lambdas.each { lambdaName ->
+        //                 def packageZip = "lambda-functions/${lambdaName}/package.zip"
+        //                 if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0 || !fileExists(packageZip)) {
+        //                     echo "Building ${lambdaName}..."
+        //                     sh "bash lambda-functions/${lambdaName}/build.sh"
+        //                 } else {
+        //                     echo "No changes detected in ${lambdaName}, skipping build."
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         stage('Build Lambda Packages') {
+            when {
+                expression { params.APPLY_OR_DESTROY == 'apply' }
+            }
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
@@ -47,6 +66,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Verify Lambda Packages') {
             steps {
