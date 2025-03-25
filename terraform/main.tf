@@ -1,9 +1,13 @@
 locals {
-  lambda_files = { for name in var.lambda_names : name => filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip") }
+  lambda_files = { 
+    for name in var.lambda_names : name => fileexists("${path.module}/../lambda-functions/${name}/package.zip") 
+      ? filebase64sha256("${path.module}/../lambda-functions/${name}/package.zip") 
+      : null 
+  }
 }
 
 resource "aws_lambda_function" "lambda" {
-  for_each      = local.lambda_files
+  for_each      = { for k, v in local.lambda_files : k => v if v != null }
   function_name = each.key
   role          = aws_iam_role.lambda_role.arn
   handler       = "index.lambda_handler"
@@ -11,7 +15,7 @@ resource "aws_lambda_function" "lambda" {
 
   filename         = "${path.module}/../lambda-functions/${each.key}/package.zip"
   source_code_hash = each.value
-  publish = true
+  publish          = true
 
   environment {
     variables = {
