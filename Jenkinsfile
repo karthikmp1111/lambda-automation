@@ -109,16 +109,29 @@ pipeline {
             }
         }
 
+        // stage('Terraform Destroy') {
+        //     when {
+        //         expression { params.APPLY_OR_DESTROY == 'destroy' }
+        //     }
+        //     steps {
+        //         dir('terraform') {
+        //             sh 'terraform destroy -auto-approve'
+        //         }
+        //     }
+        // }
         stage('Terraform Destroy') {
             when {
-                expression { params.APPLY_OR_DESTROY == 'destroy' }
+                expression { params.APPLY_OR_DESTROY == 'destroy' && params.LAMBDA_TO_DESTROY != 'none' }
             }
             steps {
                 dir('terraform') {
-                    sh 'terraform destroy -auto-approve'
+                    script {
+                        sh "terraform destroy -target=aws_lambda_function.lambda[\\\"${params.LAMBDA_TO_DESTROY}\\\"] -auto-approve"
+                    }
                 }
             }
         }
+
     }
 
     post {
