@@ -179,11 +179,15 @@ pipeline {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
                     lambdas.each { lambdaName ->
                         def packageZip = "lambda-functions/${lambdaName}/package.zip"
-                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0 || !fileExists(packageZip)) {
+                        echo "Checking if ${lambdaName} needs to be rebuilt..."
+                        def diffResult = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
+                        echo "Git diff result for ${lambdaName}: ${diffResult}"
+
+                        if (diffResult != 0 || !fileExists(packageZip)) {
                             echo "Building ${lambdaName}..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
                         } else {
-                            echo "No changes detected in ${lambdaName}, skipping build."
+                            echo "✅ No changes detected in ${lambdaName}, skipping build."
                         }
                     }
                 }
@@ -191,6 +195,9 @@ pipeline {
         }
 
         stage('Verify Lambda Packages') {
+            when {
+                expression { params.APPLY_OR_DESTROY == 'apply' }
+            }
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
@@ -198,6 +205,8 @@ pipeline {
                         def packageZip = "lambda-functions/${lambdaName}/package.zip"
                         if (!fileExists(packageZip)) {
                             error "❌ ERROR: ${packageZip} is missing. Ensure the build step executed correctly."
+                        } else {
+                            echo "✅ Found package: ${packageZip}"
                         }
                     }
                 }
