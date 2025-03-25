@@ -84,10 +84,11 @@ pipeline {
             }
         }
     }
-    
+
     post {
-        failure {
-            cleanWs()
+        always {
+            echo "Cleaning up Jenkins workspace..."
+            deleteDir()
         }
     }
 }
