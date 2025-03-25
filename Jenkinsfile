@@ -132,7 +132,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/karthikmp1111/multi-lambda.git'
-                sh 'git fetch --unshallow || true' // Ensure full Git history for diff check
+                sh 'git fetch --unshallow || true' // Ensure full Git history
             }
         }
 
@@ -162,7 +162,7 @@ pipeline {
                         def packagePath = "lambda-functions/${lambdaName}/package.zip"
                         def status = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
 
-                        // Build if package.zip is missing OR there are Git changes
+                        // 🛠️ Build if package.zip is missing OR Git changes detected
                         if (status != 0 || !fileExists(packagePath)) {
                             echo "🔄 Changes detected or package missing for ${lambdaName}, building..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
