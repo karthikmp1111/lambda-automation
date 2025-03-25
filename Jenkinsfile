@@ -114,8 +114,10 @@ pipeline {
                 expression { params.APPLY_OR_DESTROY == 'destroy' }
             }
             steps {
-                dir('terraform') {
-                    sh 'terraform destroy -auto-approve'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    dir('terraform') {
+                        sh 'terraform destroy -auto-approve'
+                    }
                 }
             }
         }
