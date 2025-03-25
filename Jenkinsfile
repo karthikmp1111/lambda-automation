@@ -13,8 +13,6 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/karthikmp1111/lambda-automation.git'
-                sh 'git fetch --unshallow || git fetch --all'
-                sh 'ls -la'
             }
         }
 
@@ -25,13 +23,11 @@ pipeline {
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_KEY')
                 ]) {
                     sh '''
-                    set -e
                     aws configure set aws_access_key_id $AWS_ACCESS_KEY
                     aws configure set aws_secret_access_key $AWS_SECRET_KEY
                     aws configure set region $AWS_REGION
                     '''
                 }
-                sh 'ls -la'
             }
         }
 
@@ -39,23 +35,28 @@ pipeline {
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
-                    def changesDetected = false
-
                     lambdas.each { lambdaName ->
-                        def packagePath = "lambda-functions/${lambdaName}/package.zip"
-                        def status = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
-
-                        if (status != 0 || !fileExists(packagePath)) {
-                            echo "🔄 Changes detected or package missing for ${lambdaName}, building..."
+                        def packageZip = "lambda-functions/${lambdaName}/package.zip"
+                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) != 0 || !fileExists(packageZip)) {
+                            echo "Building ${lambdaName}..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
-                            changesDetected = true
                         } else {
-                            echo "✅ No changes detected in ${lambdaName}, skipping build."
+                            echo "No changes detected in ${lambdaName}, skipping build."
                         }
                     }
+                }
+            }
+        }
 
-                    if (!changesDetected) {
-                        echo "🚀 No Lambda changes detected, skipping deployment."
+        stage('Verify Lambda Packages') {
+            steps {
+                script {
+                    def lambdas = ["lambda1", "lambda2", "lambda3"]
+                    lambdas.each { lambdaName ->
+                        def packageZip = "lambda-functions/${lambdaName}/package.zip"
+                        if (!fileExists(packageZip)) {
+                            error "❌ ERROR: ${packageZip} is missing. Ensure the build step executed correctly."
+                        }
                     }
                 }
             }
@@ -64,18 +65,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir('terraform') {
-                    sh 'ls -la'
                     sh 'terraform init'
-                    sh 'ls -la'
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                dir('terraform') {
-                    sh 'ls -la'
-                    sh 'terraform validate'
                 }
             }
         }
@@ -83,7 +73,6 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('terraform') {
-                    sh 'ls -la'
                     sh 'terraform plan'
                 }
             }
@@ -95,7 +84,6 @@ pipeline {
             }
             steps {
                 dir('terraform') {
-                    sh 'ls -la'
                     sh 'terraform apply -auto-approve'
                 }
             }
@@ -107,10 +95,16 @@ pipeline {
             }
             steps {
                 dir('terraform') {
-                    sh 'ls -la'
                     sh 'terraform destroy -auto-approve'
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up Jenkins workspace..."
+            deleteDir()
         }
     }
 }
