@@ -13,6 +13,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/karthikmp1111/lambda-automation.git'
+                sh 'git fetch --unshallow || git fetch --all'
                 sh 'ls -la'
             }
         }
@@ -41,9 +42,11 @@ pipeline {
                     def changesDetected = false
 
                     lambdas.each { lambdaName ->
+                        def packagePath = "lambda-functions/${lambdaName}/package.zip"
                         def status = sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true)
-                        if (status != 0) {
-                            echo "🔄 Changes detected in ${lambdaName}, building..."
+
+                        if (status != 0 || !fileExists(packagePath)) {
+                            echo "🔄 Changes detected or package missing for ${lambdaName}, building..."
                             sh "bash lambda-functions/${lambdaName}/build.sh"
                             changesDetected = true
                         } else {
@@ -55,7 +58,6 @@ pipeline {
                         echo "🚀 No Lambda changes detected, skipping deployment."
                     }
                 }
-                sh 'ls -la lambda-functions/'
             }
         }
 
