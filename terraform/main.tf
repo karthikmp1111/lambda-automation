@@ -18,6 +18,10 @@ resource "aws_lambda_function" "lambda" {
       ENV = "dev"
     }
   }
+
+  lifecycle {
+    ignore_changes = [environment, publish]  # Ignores changes in environment variables & publish flag
+  }
 }
 
 resource "aws_iam_role" "lambda_role" {
@@ -31,4 +35,8 @@ resource "aws_iam_role" "lambda_role" {
       Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
+
+  lifecycle {
+    ignore_changes = [name]  # Prevents unnecessary IAM role recreation
+  }
 }
