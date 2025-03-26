@@ -478,17 +478,47 @@ pipeline {
             }
         }
 
+        // stage('Verify Lambda Packages') {
+        //     when {
+        //         expression { params.APPLY_OR_DESTROY == 'apply' }
+        //     }
+        //     steps {
+        //         script {
+        //             def lambdas = ["lambda1", "lambda2", "lambda3"]
+        //             lambdas.each { lambdaName ->
+        //                 def packageZip = "lambda-functions/${lambdaName}/package.zip"
+        //                 if (!fileExists(packageZip)) {
+        //                     error "❌ ERROR: ${packageZip} is missing. Ensure the build step executed correctly."
+        //                 } else {
+        //                     echo "✅ Found package: ${packageZip}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
         stage('Verify Lambda Packages') {
-            when {
-                expression { params.APPLY_OR_DESTROY == 'apply' }
-            }
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
+                    def s3_bucket = "bg-kar-lambda-bucket" // Replace with your actual bucket name
+                    def s3_prefix = "lambda-packages/"  // The S3 folder where ZIPs are stored
+
                     lambdas.each { lambdaName ->
                         def packageZip = "lambda-functions/${lambdaName}/package.zip"
+
                         if (!fileExists(packageZip)) {
-                            error "❌ ERROR: ${packageZip} is missing. Ensure the build step executed correctly."
+                            echo "⚠️ ${packageZip} is missing locally. Attempting to download from S3..."
+                            
+                            // Try downloading from S3
+                            def s3_key = "${s3_prefix}${lambdaName}.zip"
+                            sh "aws s3 cp s3://${s3_bucket}/${s3_key} ${packageZip} || true"
+
+                            if (!fileExists(packageZip)) {
+                                error "❌ ERROR: ${packageZip} is missing and could not be retrieved from S3."
+                            } else {
+                                echo "✅ Retrieved ${packageZip} from S3."
+                            }
                         } else {
                             echo "✅ Found package: ${packageZip}"
                         }
