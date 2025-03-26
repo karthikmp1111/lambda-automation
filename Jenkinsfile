@@ -446,32 +446,60 @@ pipeline {
             }
         }
 
+        // stage('Build & Deploy Lambda Functions') {
+        //     when {
+        //         expression { params.APPLY_OR_DESTROY == 'apply' }
+        //     }
+        //     steps {
+        //         script {
+        //             def lambdaFunctions = [
+        //                 'lambda1': env.LAMBDA1_CHANGED,
+        //                 'lambda2': env.LAMBDA2_CHANGED,
+        //                 'lambda3': env.LAMBDA3_CHANGED
+        //             ]
+
+        //             lambdaFunctions.each { lambdaName, changed ->
+        //                 if (changed == 'changed') {
+        //                     echo "Building and deploying ${lambdaName}..."
+        //                     sh "bash lambda-functions/${lambdaName}/build.sh"
+        //                     sh """
+        //                     aws lambda update-function-code \
+        //                         --function-name ${lambdaName} \
+        //                         --zip-file fileb://lambda-functions/${lambdaName}/package.zip
+        //                     """
+        //                     sh """
+        //                     aws lambda publish-version --function-name ${lambdaName}
+        //                     """
+        //                 } else {
+        //                     echo "✅ No changes detected in ${lambdaName}, skipping deployment."
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
         stage('Build & Deploy Lambda Functions') {
-            when {
-                expression { params.APPLY_OR_DESTROY == 'apply' }
-            }
             steps {
                 script {
-                    def lambdaFunctions = [
-                        'lambda1': env.LAMBDA1_CHANGED,
-                        'lambda2': env.LAMBDA2_CHANGED,
-                        'lambda3': env.LAMBDA3_CHANGED
-                    ]
+                    def lambdas = ["lambda1", "lambda2", "lambda3"]
+                    def s3_bucket = "bg-kar-lambda-bucket"
+                    def s3_prefix = "lambda-packages/"
 
-                    lambdaFunctions.each { lambdaName, changed ->
-                        if (changed == 'changed') {
-                            echo "Building and deploying ${lambdaName}..."
-                            sh "bash lambda-functions/${lambdaName}/build.sh"
-                            sh """
-                            aws lambda update-function-code \
-                                --function-name ${lambdaName} \
-                                --zip-file fileb://lambda-functions/${lambdaName}/package.zip
-                            """
-                            sh """
-                            aws lambda publish-version --function-name ${lambdaName}
-                            """
+                    lambdas.each { lambdaName ->
+                        def packageZip = "lambda-functions/${lambdaName}/package.zip"
+
+                        // Check if ZIP already exists in S3
+                        def s3_key = "${s3_prefix}${lambdaName}.zip"
+                        def s3_exists = sh(script: "aws s3 ls s3://${s3_bucket}/${s3_key}", returnStatus: true) == 0
+
+                        if (sh(script: "git diff --quiet HEAD~1 lambda-functions/${lambdaName}", returnStatus: true) == 0 && s3_exists) {
+                            echo "✅ No changes detected in ${lambdaName}, skipping build."
                         } else {
-                            echo "✅ No changes detected in ${lambdaName}, skipping deployment."
+                            echo "Building ${lambdaName}..."
+                            sh "bash lambda-functions/${lambdaName}/build.sh"
+
+                            // Upload new ZIP to S3
+                            sh "aws s3 cp ${packageZip} s3://${s3_bucket}/${s3_key}"
                         }
                     }
                 }
