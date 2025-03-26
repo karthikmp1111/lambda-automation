@@ -482,7 +482,7 @@ pipeline {
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
-                    def s3_bucket = "bg-kar-lambda-bucket"
+                    def s3_bucket = "bg-kar-terraform-state"
                     def s3_prefix = "lambda-packages/"
 
                     lambdas.each { lambdaName ->
@@ -529,7 +529,7 @@ pipeline {
             steps {
                 script {
                     def lambdas = ["lambda1", "lambda2", "lambda3"]
-                    def s3_bucket = "bg-kar-lambda-bucket" // Replace with your actual bucket name
+                    def s3_bucket = "bg-kar-terraform-state" // Replace with your actual bucket name
                     def s3_prefix = "lambda-packages/"  // The S3 folder where ZIPs are stored
 
                     lambdas.each { lambdaName ->
